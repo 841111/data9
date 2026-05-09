@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>学生注册</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <h1>学生注册</h1>
+      <p>上传照片并填写学生信息</p>
+    </header>
+
+    <section class="panel">
+      <h2><span class="icon">📝</span> 单个学生注册</h2>
+      <div class="col">
+        <input id="studentId" placeholder="学号 (如 2023302...)" />
+        <input id="studentName" placeholder="姓名" />
+        <input id="studentMajor" placeholder="专业" />
+        <select id="studentGender">
+          <option value="">请选择性别</option>
+          <option value="男">男</option>
+          <option value="女">女</option>
+        </select>
+        
+        <div class="camera-box" style="max-width: 320px;">
+          <video id="video" autoplay playsinline></video>
+        </div>
+        <div class="row" style="margin-top: 15px;">
+          <button id="btnOpenCam">开启摄像头</button>
+          <button id="btnCapture">拍照/取样</button>
+        </div>
+        
+        <button id="btnRegister" class="btn-primary">提交注册</button>
+        <div id="registerText" class="result-box"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="nav-tab-bar">
+    <a href="class_attendance.html" class="nav-item">
+      <span class="nav-icon">👤</span>
+      <span>课堂考勤</span>
+    </a>
+    <a href="activity_signin.html" class="nav-item">
+      <span class="nav-icon">👥</span>
+      <span>集体活动</span>
+    </a>
+    <a href="register.html" class="nav-item active">
+      <span class="nav-icon">➕</span>
+      <span>学生注册</span>
+    </a>
+  </nav>
+
+  <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
+  <script src="register.js"></script>
+</body>
+</html>

@@ -11,7 +11,8 @@ class RegisterStudentRequest(BaseModel):
 
 
 class AttendanceRequest(BaseModel):
-    classroom_id: str = Field(default="default", max_length=64)
+    classroom_id: str = Field(..., min_length=1, max_length=64, description="课程名称")
+    teacher_name: str = Field(..., min_length=1, max_length=64, description="教师姓名")
     image_base64: str
 
 
@@ -45,3 +46,16 @@ class GroupRecognitionResponse(BaseModel):
     total_faces: int
     matched_count: int
     matched_students: list[GroupRecognitionItem]
+
+
+class RegisterStudentPhotoRequest(BaseModel):
+    student_id: str = Field(min_length=1, max_length=32)
+    student_name: str = Field(min_length=1, max_length=32)
+    major: str = Field(min_length=1, max_length=64)
+    gender: str = Field(min_length=1, max_length=8)
+
+
+class ExcelImportResponse(BaseModel):
+    success_count: int
+    failed_count: int
+    failed_list: list[str] = []

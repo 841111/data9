@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>活动签到系统</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <h1>活动签到系统</h1>
+      <p>集体合照识别 + 批量人脸识别 + 情绪分析</p>
+    </header>
+
+    <section class="panel">
+      <h2><span class="icon">📸</span> 集体活动签到（合照识别）</h2>
+      <div class="col">
+        <label>活动主题</label>
+        <input id="activityName" placeholder="例如：校招宣讲会、社团招新" required />
+        
+        <label>活动类型</label>
+        <select id="activityType">
+          <option value="lecture">讲座</option>
+          <option value="meeting">会议</option>
+          <option value="competition">竞赛</option>
+          <option value="social">社交活动</option>
+          <option value="other">其他</option>
+        </select>
+        
+        <label>活动时间</label>
+        <input id="activityTime" type="datetime-local" />
+        
+        <div class="upload-container" id="dropZone">
+          <input id="groupFile" type="file" accept="image/*" hidden />
+          <div class="upload-placeholder" id="uploadPlaceholder">
+            <p>点击或拖拽活动合照至此处</p>
+            <small>支持 JPG, PNG 格式</small>
+          </div>
+          <div class="preview-wrapper">
+            <img id="groupPreview" class="hidden" alt="group preview" />
+            <div id="faceOverlay" class="overlay-container"></div>
+          </div>
+        </div>
+        <button id="btnGroup" class="btn-primary">上传并识别</button>
+        <div id="groupText" class="result-box"></div>
+        <div id="progressContainer" class="progress-container hidden">
+          <div class="progress-bar-bg">
+            <div id="progressBar" class="progress-bar-fill"></div>
+          </div>
+          <p id="progressText" class="progress-text"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h3>活动参与者名单与情绪洞察</h3>
+      <div class="grid-2">
+        <div id="activityStatsWrapper"></div>
+        <canvas id="activityEmotionChart"></canvas>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2><span class="icon">📊</span> 全局活动统计</h2>
+        <div class="header-actions">
+          <button id="btnExportAttendance" class="btn-export">📥 导出考勤全表</button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <h3>活动参与排行</h3>
+          <button id="btnActivityReport" class="btn-refresh">刷新排行</button>
+          <div id="activityReportWrapper" class="scroll-box"></div>
+          <div id="activityReportText" class="hidden"></div>
+          <canvas id="activityChart"></canvas>
+        </div>
+
+        <div>
+          <h3>情绪分布统计</h3>
+          <button id="btnEmotionReport" class="btn-refresh">刷新情绪</button>
+          <div id="emotionLegend" class="emo-summary"></div>
+          <canvas id="emotionChart"></canvas>
+          <div id="emotionReportText" class="hidden"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="nav-tab-bar">
+    <a href="class_attendance.html" class="nav-item">
+      <span class="nav-icon">👤</span>
+      <span>课堂考勤</span>
+    </a>
+    <a href="activity_signin.html" class="nav-item active">
+      <span class="nav-icon">👥</span>
+      <span>集体活动</span>
+    </a>
+    <a href="register.html" class="nav-item">
+      <span class="nav-icon">➕</span>
+      <span>学生注册</span>
+    </a>
+  </nav>
+
+  <script src="activity_app.js"></script>
+</body>
+</html>

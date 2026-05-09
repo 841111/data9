@@ -2,7 +2,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = BASE_DIR / "data"
-FACE_DB_DIR = DATA_DIR / "face_db"
+FACE_DB_DIR = DATA_DIR / "face_data"
 UPLOAD_DIR = DATA_DIR / "uploads"
 REPORT_DIR = DATA_DIR / "reports"
 SQLITE_PATH = DATA_DIR / "attendance.db"

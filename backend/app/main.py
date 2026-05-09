@@ -4,6 +4,8 @@ from fastapi.responses import JSONResponse
 
 from .database import (
     get_activity_report,
+    get_activity_detail,
+    get_class_detail,
     get_daily_emotion_trend,
     get_emotion_report,
     get_student_activity_stats,
@@ -15,13 +17,36 @@ from .services import (
     export_attendance_to_excel,
     recognize_group_photo,
     register_student,
+    register_student_with_photo,
 )
 
 app = FastAPI(title="Class Attendance Secure CV System", version="1.0.0")
 
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    return JSONResponse(
+        status_code=400,
+        content={"message": str(exc)},
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"message": f"Internal server error: {str(exc)}"},
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,6 +55,11 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup() -> None:
+    from .config import DATA_DIR, FACE_DB_DIR, UPLOAD_DIR, REPORT_DIR
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    FACE_DB_DIR.mkdir(parents=True, exist_ok=True)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    REPORT_DIR.mkdir(parents=True, exist_ok=True)
     init_db()
 
 
@@ -67,15 +97,21 @@ def api_register_student(payload: RegisterStudentRequest, x_role: str | None = H
 
 @app.post("/api/attendance/check")
 def api_attendance(payload: AttendanceRequest):
-    return check_attendance(payload.classroom_id, payload.image_base64)
+    return check_attendance(payload.classroom_id, payload.teacher_name, payload.image_base64)
 
 
 @app.post("/api/group-photo/recognize")
 async def api_group_photo_recognize(
-    activity_name: str = Form(default="default_activity"), file: UploadFile = File(...)
+    activity_name: str = Form(...),
+    activity_type: str = Form(default="other"),
+    activity_time: str = Form(default=None),
+    file: UploadFile = File(...),
 ):
+    if not activity_name.strip():
+        raise HTTPException(status_code=400, detail="必须填写活动名称才能开始签到")
+    
     raw = await file.read()
-    return recognize_group_photo(activity_name, raw)
+    return recognize_group_photo(activity_name, raw, activity_type, activity_time)
 
 
 @app.get("/api/reports/activity")
@@ -106,3 +142,27 @@ def api_daily_emotion_trend(x_role: str | None = Header(default=None)) -> dict:
 def api_export_attendance(x_role: str | None = Header(default=None)) -> dict:
     verify_teacher_permission(x_role)
     return {"file_path": export_attendance_to_excel()}
+
+
+@app.post("/api/register")
+async def api_register_student_with_photo(
+    student_id: str = Form(...),
+    student_name: str = Form(...),
+    major: str = Form(...),
+    gender: str = Form(...),
+    file: UploadFile = File(...),
+):
+    raw = await file.read()
+    return register_student_with_photo(student_id, student_name, major, gender, raw)
+
+
+@app.get("/api/reports/class-detail")
+def api_class_detail(classroom_id: str, x_role: str | None = Header(default=None)) -> dict:
+    verify_teacher_permission(x_role)
+    return get_class_detail(classroom_id)
+
+
+@app.get("/api/reports/activity-detail")
+def api_activity_detail(activity_name: str, x_role: str | None = Header(default=None)) -> dict:
+    verify_teacher_permission(x_role)
+    return get_activity_detail(activity_name)

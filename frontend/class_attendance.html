@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>课堂签到系统</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <h1>课堂签到系统</h1>
+      <p>实时人脸识别 + 活体检测 + 情绪分析</p>
+    </header>
+
+    <section class="panel">
+      <h2><span class="icon">✔️</span> 每日课堂签到</h2>
+      <div class="col">
+        <label>当前课程名称</label>
+        <input id="className" placeholder="例如：高等数学、数据安全实验" required />
+        
+        <label>教师姓名</label>
+        <input id="teacherName" placeholder="请输入教师姓名" required />
+        
+        <div class="camera-box">
+          <video id="video" autoplay playsinline></video>
+        </div>
+        <div class="row" style="margin-top: 15px;">
+          <button id="btnOpenCam">开启摄像头</button>
+          <button id="btnCapture">拍照/取样</button>
+        </div>
+        <button id="btnAttendance" class="btn-primary">确认签到</button>
+        <div id="attendanceText" class="result-box"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h3>本课签到名单与情绪分布</h3>
+      <div class="grid-2">
+        <div id="classParticipationList"></div>
+        <canvas id="classEmotionChart"></canvas>
+      </div>
+      <button id="btnDownloadDaily" style="margin-top: 15px;">📥 导出本课签到名单</button>
+    </section>
+  </main>
+
+  <nav class="nav-tab-bar">
+    <a href="class_attendance.html" class="nav-item active">
+      <span class="nav-icon">👤</span>
+      <span>课堂考勤</span>
+    </a>
+    <a href="activity_signin.html" class="nav-item">
+      <span class="nav-icon">👥</span>
+      <span>集体活动</span>
+    </a>
+    <a href="register.html" class="nav-item">
+      <span class="nav-icon">➕</span>
+      <span>学生注册</span>
+    </a>
+  </nav>
+
+  <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
+  <script src="class_app.js"></script>
+</body>
+</html>
