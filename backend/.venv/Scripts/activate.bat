@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\17453\Desktop\data9-main\backend\.venv
+set VIRTUAL_ENV=D:\360\vscode-data\data9-2\data9\backend\.venv
 
 if not defined PROMPT set PROMPT=$P$G
 
