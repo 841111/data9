@@ -1,0 +1,24 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+env/
+
+# Database
+*.db
+*.sqlite3
+
+# Face data
+data/face_data/
+
+# Logs
+*.log
+
+# VSCode
+.vscode/
+
+# System files
+.DS_Store
+Thumbs.db

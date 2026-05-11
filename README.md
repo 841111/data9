@@ -41,8 +41,10 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+如果你是在移动目录后继续使用旧的 `.venv`，请先删除并重新创建虚拟环境，否则 Windows 里的启动器可能还会指向旧路径。
 
 ### 前端
 
