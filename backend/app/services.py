@@ -354,20 +354,31 @@ def export_attendance_to_excel() -> str:
     """
     try:
         import pandas as pd
+    except ImportError as exc:
+        raise ValueError("pandas not installed. Run: pip install pandas openpyxl") from exc
+    
+    try:
+        import openpyxl  # noqa: F401 (explicit check to ensure it's available)
+    except ImportError as exc:
+        raise ValueError("openpyxl not installed. Run: pip install pandas openpyxl") from exc
+
+    try:
+        conn = _get_connection()
+        # read_sql_query：直接把 SQL 查询结果变成 DataFrame
+        df = pd.read_sql_query("SELECT * FROM attendance", conn)
+        
+        if df.empty:
+            raise ValueError("No attendance records found in database")
+
+        REPORT_DIR.mkdir(parents=True, exist_ok=True)
+        # 文件名包含时间戳，避免覆盖
+        file_path = REPORT_DIR / f"attendance_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+        # to_excel：DataFrame → Excel 文件，index=False 不写行号列
+        df.to_excel(file_path, index=False, engine='openpyxl')
+        return str(file_path)
     except Exception as exc:
-        raise ValueError("Excel export requires pandas and openpyxl") from exc
-
-    conn = _get_connection()
-    # read_sql_query：直接把 SQL 查询结果变成 DataFrame
-    df = pd.read_sql_query("SELECT * FROM attendance", conn)
-
-    REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    # 文件名包含时间戳，避免覆盖
-    file_path = REPORT_DIR / f"attendance_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-
-    # to_excel：DataFrame → Excel 文件，index=False 不写行号列
-    df.to_excel(file_path, index=False)
-    return str(file_path)
+        raise ValueError(f"Excel export failed: {str(exc)}") from exc
 
 
 def register_student_with_photo(

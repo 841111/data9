@@ -281,10 +281,12 @@ def liveness_check(face_region: np.ndarray) -> tuple[bool, str]:
     """
     活体检测：判断摄像头前的是真人还是照片/屏幕
     
-    使用三重检测策略（都是启发式方法，不用深度学习）：
+    使用五重检测策略（都是启发式方法，不用深度学习）：
     1. 模糊度检测：真人在摄像头前有自然的清晰度变化
-    2. 频域纹理检测：打印照片/屏幕有异常高频纹理
-    3. 饱和度检测：灰度照片缺乏颜色信息
+    2. 纹理一致性：打印照片/屏幕有规则纹理，真人是自然纹理
+    3. 莫尔纹检测：手机屏幕特有的周期性纹理干涉（摄像头 vs 屏幕像素网格）
+    4. 眼睛高光检测：真人眼睛有高光反射，屏幕照片缺乏
+    5. 颜色饱和度检测：灰度照片缺乏颜色信息
     
     返回：(是否通过, 原因说明)
     """
@@ -312,33 +314,75 @@ def liveness_check(face_region: np.ndarray) -> tuple[bool, str]:
     # 打印照片/屏幕通常会出现规则纹理，但真实人脸的局部纹理变化更自然。
     laplacian = cv2.Laplacian(gray, cv2.CV_64F)
     texture_score = float(np.std(laplacian))
-    texture_threshold = 22.0
+    texture_threshold = 6.0  # 严格检测规则纹理（屏幕/打印照片特征）
     if texture_score < texture_threshold:
         return False, (
-            "Low texture diversity detected "
+            "Low texture diversity detected (screen or print suspected) "
             f"(texture={texture_score:.2f}, threshold={texture_threshold:.2f})"
         )
 
-    # --- 检测3：频域高频能量 ---
+    # --- 检测3：莫尔纹检测（屏幕特有） ---
+    # 手机屏幕照片会产生规则周期纹理（摄像头像素与屏幕像素的干涉）
     dft = np.fft.fft2(gray)
     dft_shift = np.fft.fftshift(dft)
     magnitude_spectrum = np.log(np.abs(dft_shift) + 1)
     rows, cols = gray.shape
     crow, ccol = rows // 2, cols // 2
-    low_freq_radius = max(12, min(rows, cols) // 10)
-    magnitude_spectrum[
-        crow - low_freq_radius:crow + low_freq_radius,
-        ccol - low_freq_radius:ccol + low_freq_radius,
+    
+    # 检查中心（低频）和周围（高频）的能量分布
+    center_radius = 30
+    center_region = magnitude_spectrum[
+        max(0, crow - center_radius):min(rows, crow + center_radius),
+        max(0, ccol - center_radius):min(cols, ccol + center_radius),
+    ]
+    center_energy = float(np.mean(center_region)) if center_region.size > 0 else 0
+    
+    # 移除中心后计算高频能量
+    magnitude_spectrum_no_center = magnitude_spectrum.copy()
+    magnitude_spectrum_no_center[
+        max(0, crow - center_radius):min(rows, crow + center_radius),
+        max(0, ccol - center_radius):min(cols, ccol + center_radius),
     ] = 0
-    high_freq_score = float(np.mean(magnitude_spectrum))
-    fft_threshold = 4.8
+    high_freq_score = float(np.mean(magnitude_spectrum_no_center))
+    
+    # 屏幕照片：高频能量过高（周期纹理）
+    fft_threshold = 8.0
     if high_freq_score > fft_threshold:
         return False, (
-            "Suspicious texture detected (Anti-spoofing triggered) "
+            "Suspicious periodic texture detected (screen artifact) "
             f"(fft={high_freq_score:.2f}, threshold={fft_threshold:.2f})"
         )
+    
+    # 屏幕照片：中心/高频能量比异常（周期纹理导致能量分布不均）
+    if center_energy > 0.1:
+        energy_ratio = high_freq_score / (center_energy + 1e-6)
+        if energy_ratio > 3.0:  # 屏幕莫尔纹会让这个比值特别大
+            return False, (
+                "Screen display detected via Moiré pattern analysis "
+                f"(energy_ratio={energy_ratio:.2f})"
+            )
 
-    # --- 检测4：颜色饱和度 ---
+    # --- 检测4：眼睛高光检测（真人特征）---
+    # 真人眼睛在光线下会有高光反射，屏幕照片通常缺乏这种反射
+    # 策略：在人脸上半部分找高亮区域（眼睛通常在这里）
+    h, w = gray.shape
+    upper_face = gray[:h//3, :]  # 取人脸上部（眼睛附近）
+    
+    # 计算像素亮度分布
+    # 高光（眼睛反射）：像素值 240+ 的区域
+    bright_pixels = np.sum(upper_face > 240)
+    bright_ratio = float(bright_pixels) / (upper_face.size + 1e-6)
+    
+    # 屏幕照片：缺乏眼睛高光（bright_ratio 很低）
+    # 真人通常会有至少一些高光反射
+    min_highlight_threshold = 0.0005
+    if bright_ratio < min_highlight_threshold:
+        return False, (
+            "No eye highlight detected (screen display suspected) "
+            f"(highlight_ratio={bright_ratio:.6f})"
+        )
+
+    # --- 检测5：颜色饱和度 ---
     hsv = cv2.cvtColor(face_region, cv2.COLOR_BGR2HSV)
     saturation = float(np.mean(hsv[:, :, 1]))
     saturation_min_threshold = 14.0
@@ -357,22 +401,23 @@ def liveness_check(face_region: np.ndarray) -> tuple[bool, str]:
 
     # 综合评分：把各项结果汇总，便于调试和后续调参。
     liveness_score = (
-        min(1.0, blur_score / blur_min_threshold) * 0.35
-        + min(1.0, texture_score / texture_threshold) * 0.25
+        min(1.0, blur_score / blur_min_threshold) * 0.3
+        + min(1.0, texture_score / texture_threshold) * 0.2
         + max(0.0, 1.0 - abs(high_freq_score - 3.2) / 3.2) * 0.2
-        + min(1.0, saturation / 80.0) * 0.2
+        + min(1.0, bright_ratio / 0.01) * 0.15  # 眼睛高光权重
+        + min(1.0, saturation / 80.0) * 0.15
     )
-    if liveness_score < 0.72:
+    if liveness_score < 0.50:
         return False, (
             "Liveness score too low "
             f"(score={liveness_score:.2f}, blur={blur_score:.2f}, texture={texture_score:.2f}, "
-            f"fft={high_freq_score:.2f}, saturation={saturation:.2f})"
+            f"fft={high_freq_score:.2f}, highlight={bright_ratio:.6f}, saturation={saturation:.2f})"
         )
 
     return True, (
         "Liveness passed "
         f"(score={liveness_score:.2f}, blur={blur_score:.2f}, texture={texture_score:.2f}, "
-        f"fft={high_freq_score:.2f}, saturation={saturation:.2f})"
+        f"fft={high_freq_score:.2f}, highlight={bright_ratio:.6f}, saturation={saturation:.2f})"
     )
 
 
