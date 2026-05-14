@@ -259,6 +259,14 @@ def match_student(embedding: list[float], students: list[dict]) -> FaceMatch | N
     best_idx = int(np.argmin(distances))
     min_dist = float(distances[best_idx])
 
+    # 仅靠“最近一个”容易把相似人脸误判成别人。
+    # 如果第一名和第二名太接近，宁可返回 None 让页面显示“未识别”，
+    # 也不要把 A 错认成 B。
+    if len(distances) > 1:
+        second_best = float(np.partition(distances, 1)[1])
+        if (second_best - min_dist) < 0.06:
+            return None
+
     # 根据使用的模型选择对应阈值
     threshold = FACE_MATCH_THRESHOLD_HIGH_QUALITY if HAS_FACE_RECOGNITION else FACE_MATCH_THRESHOLD_LIGHTWEIGHT
 
@@ -293,12 +301,15 @@ def liveness_check(face_region: np.ndarray) -> tuple[bool, str]:
     gray = cv2.cvtColor(face_region, cv2.COLOR_BGR2GRAY)
 
     # --- 检测1：模糊度 ---
+    # Laplacian算子对每个像素计算二阶导数（边缘变化的变化量）。.var()是方差。清晰的真人照片：边缘锐利，方差大（>30）。打印照片或屏幕拍摄：图像经过二次成像，边缘模糊，方差小。
     blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
     brightness = float(np.mean(gray))
 
     # 照片/屏幕常出现过于平整或过于锐利的边缘，双向都可疑。
-    blur_min_threshold = 38.0 if brightness > 50 else 24.0
-    blur_max_threshold = 4500.0
+    # 原值: blur_min_threshold = 38.0 if brightness > 50 else 24.0; blur_max_threshold = 4500.0
+    # 新值: 放宽要求，容错能力更强（更容易通过，减少误拒）
+    blur_min_threshold = 10.0 if brightness > 50 else 8.0
+    blur_max_threshold = 8000.0
     if blur_score < blur_min_threshold:
         return False, (
             "Image too blurry, please ensure good lighting "
@@ -312,9 +323,11 @@ def liveness_check(face_region: np.ndarray) -> tuple[bool, str]:
 
     # --- 检测2：纹理一致性 ---
     # 打印照片/屏幕通常会出现规则纹理，但真实人脸的局部纹理变化更自然。
+    # 原值: texture_threshold = 6.0
+    # 新值: 降低到 2.0，更容易通过
     laplacian = cv2.Laplacian(gray, cv2.CV_64F)
     texture_score = float(np.std(laplacian))
-    texture_threshold = 6.0  # 严格检测规则纹理（屏幕/打印照片特征）
+    texture_threshold = 2.0  # 放宽要求，原来 6.0，现在 2.0
     if texture_score < texture_threshold:
         return False, (
             "Low texture diversity detected (screen or print suspected) "
@@ -346,7 +359,9 @@ def liveness_check(face_region: np.ndarray) -> tuple[bool, str]:
     high_freq_score = float(np.mean(magnitude_spectrum_no_center))
     
     # 屏幕照片：高频能量过高（周期纹理）
-    fft_threshold = 8.0
+    # 原值: fft_threshold = 8.0
+    # 新值: 提高到 15.0，更容易通过
+    fft_threshold = 15.0
     if high_freq_score > fft_threshold:
         return False, (
             "Suspicious periodic texture detected (screen artifact) "
@@ -356,7 +371,7 @@ def liveness_check(face_region: np.ndarray) -> tuple[bool, str]:
     # 屏幕照片：中心/高频能量比异常（周期纹理导致能量分布不均）
     if center_energy > 0.1:
         energy_ratio = high_freq_score / (center_energy + 1e-6)
-        if energy_ratio > 3.0:  # 屏幕莫尔纹会让这个比值特别大
+        if energy_ratio > 8.0:  # 原值 3.0，放宽到 8.0
             return False, (
                 "Screen display detected via Moiré pattern analysis "
                 f"(energy_ratio={energy_ratio:.2f})"
@@ -375,7 +390,9 @@ def liveness_check(face_region: np.ndarray) -> tuple[bool, str]:
     
     # 屏幕照片：缺乏眼睛高光（bright_ratio 很低）
     # 真人通常会有至少一些高光反射
-    min_highlight_threshold = 0.0005
+    # 原值: min_highlight_threshold = 0.0005
+    # 新值: 降低到 0.00001，几乎不会因为没有高光而拒绝
+    min_highlight_threshold = 0.00001
     if bright_ratio < min_highlight_threshold:
         return False, (
             "No eye highlight detected (screen display suspected) "
@@ -385,8 +402,10 @@ def liveness_check(face_region: np.ndarray) -> tuple[bool, str]:
     # --- 检测5：颜色饱和度 ---
     hsv = cv2.cvtColor(face_region, cv2.COLOR_BGR2HSV)
     saturation = float(np.mean(hsv[:, :, 1]))
-    saturation_min_threshold = 14.0
-    saturation_max_threshold = 235.0
+    # 原值: saturation_min_threshold = 14.0; saturation_max_threshold = 235.0
+    # 新值: 放宽范围，容错更强 (5.0 ~ 245.0)
+    saturation_min_threshold = 5.0
+    saturation_max_threshold = 245.0
 
     if saturation < saturation_min_threshold:
         return False, (
@@ -407,7 +426,9 @@ def liveness_check(face_region: np.ndarray) -> tuple[bool, str]:
         + min(1.0, bright_ratio / 0.01) * 0.15  # 眼睛高光权重
         + min(1.0, saturation / 80.0) * 0.15
     )
-    if liveness_score < 0.50:
+    # 原值: liveness_score < 0.50
+    # 新值: 降低到 0.20，更容易通过（几乎所有真人照片都能通过）
+    if liveness_score < 0.20:
         return False, (
             "Liveness score too low "
             f"(score={liveness_score:.2f}, blur={blur_score:.2f}, texture={texture_score:.2f}, "

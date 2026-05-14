@@ -1,3 +1,6 @@
+# 用 Pydantic 定义"数据长什么样"，比如注册学生时必须传哪些字段、字段最长多少。
+# FastAPI 会自动用它来验证请求参数，不合格的请求直接报错，不需要写任何校验代码。
+
 from datetime import datetime
 from typing import Literal
 

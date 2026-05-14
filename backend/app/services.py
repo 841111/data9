@@ -336,11 +336,20 @@ def recognize_group_photo(
     # 过滤掉 None（没有匹配到学生的人脸）
     matched_items = [item for item in results if item is not None]
 
+    # 同一学生如果被多张人脸重复匹配，最终只显示一次。
+    unique_items: list[GroupRecognitionItem] = []
+    seen_student_ids: set[str] = set()
+    for item in matched_items:
+        if item.student_id in seen_student_ids:
+            continue
+        seen_student_ids.add(item.student_id)
+        unique_items.append(item)
+
     return GroupRecognitionResponse(
         success=True,
         total_faces=len(faces),
-        matched_count=len(matched_items),
-        matched_students=matched_items,
+        matched_count=len(unique_items),
+        matched_students=unique_items,
     )
 
 

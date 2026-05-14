@@ -137,6 +137,7 @@ def fetch_students_from_face_data() -> list[dict]:
     import cv2
     
     students = []
+    seen_student_ids: set[str] = set()
     
     if not FACE_DB_DIR.exists():
         return students
@@ -149,6 +150,11 @@ def fetch_students_from_face_data() -> list[dict]:
             if len(parts) >= 2:
                 student_id = parts[0]
                 student_name = parts[1]
+
+                # 同一个学号可能被重复保存成多个图片文件。
+                # 这里按学号去重，避免一个人被加载成多个候选项。
+                if student_id in seen_student_ids:
+                    continue
                 
                 image = cv2.imread(str(image_file))
                 if image is not None:
@@ -158,6 +164,7 @@ def fetch_students_from_face_data() -> list[dict]:
                         "name": student_name,
                         "embedding": embedding,
                     })
+                    seen_student_ids.add(student_id)
         except Exception:
             continue
     
